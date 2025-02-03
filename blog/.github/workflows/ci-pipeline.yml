@@ -1,0 +1,108 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: blog
+          MYSQL_ROOT_PASSWORD: password
+        ports:
+          - 3316:3306
+        options: >-
+          --health-cmd "mysqladmin ping --host=localhost --user=root --password=password"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Cache Maven packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Debug Directory Structure
+        run: ls -R
+
+      - name: Navigate to Project Directory
+        working-directory: src
+        run: |
+          echo "Current directory: $(pwd)"
+          ls
+
+      - name: Format Code with Spotless
+        working-directory: .
+        run: mvn spotless:apply
+
+      - name: Build and Run Tests
+        run: mvn clean package
+
+      - name: Run Maven Tests
+        working-directory: .
+        run: mvn test
+        env:
+          SPRING_PROFILES_ACTIVE: test
+
+      - name: Upload Dependency-Check Report as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: dependency-check-report
+          path: src/target/dependency-check-report.html
+
+      - name: Run JaCoCo for Test Coverage
+        working-directory: .
+        run: mvn jacoco:report
+
+  docker-build-and-push:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Image Tags
+        run: |
+          echo "IMAGE_TAG=ghcr.io/intrastellarltd/blog-project-springboot/blog:${{ github.sha }}" >> $GITHUB_ENV
+          echo "IMAGE_TAG_LATEST=ghcr.io/intrastellarltd/blog-project-springboot/blog:latest" >> $GITHUB_ENV
+
+      - name: Build Docker Image
+        run: |
+          docker build -t $IMAGE_TAG -t $IMAGE_TAG_LATEST .
+
+      - name: Install Grype
+        run: curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+  
+      - name: Scan Docker Image with Grype
+        run: grype $IMAGE_TAG
+
+      - name: Push Docker Image to GHCR
+        run: |
+          docker push $IMAGE_TAG
+          docker push $IMAGE_TAG_LATEST
