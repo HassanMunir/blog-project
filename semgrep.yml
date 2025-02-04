@@ -1,0 +1,6 @@
+rules:
+  - id: example-rule
+    pattern: $X == $X
+    message: "This is a redundant comparison"
+    languages: [java]
+    severity: WARNING

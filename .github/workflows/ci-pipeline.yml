@@ -64,8 +64,16 @@ jobs:
         env:
           SPRING_PROFILES_ACTIVE: test
 
+      - name: Install Semgrep
+        run: |
+          pip install semgrep
+  
+      - name: Run Semgrep SAST
+        run: |
+          semgrep --config=./semgrep.yml .
+
       - name: Upload Dependency-Check Report as Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dependency-check-report
           path: src/target/dependency-check-report.html
@@ -96,11 +104,15 @@ jobs:
         run: |
           docker build -t $IMAGE_TAG -t $IMAGE_TAG_LATEST .
 
-      - name: Install Grype
-        run: curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+      - name: Scan image
+        uses: anchore/scan-action@v6
+        with:
+          image: "ghcr.io/intrastellarltd/blog-project-springboot/blog:latest"
+          fail-build: false
   
-      - name: Scan Docker Image with Grype
-        run: grype $IMAGE_TAG
+      - uses: anchore/sbom-action@v0
+        with:
+          image: "ghcr.io/intrastellarltd/blog-project-springboot/blog:latest"
 
       - name: Push Docker Image to GHCR
         run: |
