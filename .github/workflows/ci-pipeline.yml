@@ -97,8 +97,8 @@ jobs:
 
       - name: Image Tags
         run: |
-          echo "IMAGE_TAG=ghcr.io/intrastellarltd/blog-project-springboot/blog:${{ github.sha }}" >> $GITHUB_ENV
-          echo "IMAGE_TAG_LATEST=ghcr.io/intrastellarltd/blog-project-springboot/blog:latest" >> $GITHUB_ENV
+          echo "IMAGE_TAG=ghcr.io/HassanMunir/blog-project-springboot/blog:${{ github.sha }}" >> $GITHUB_ENV
+          echo "IMAGE_TAG_LATEST=ghcr.io/HassanMunir/blog-project-springboot/blog:latest" >> $GITHUB_ENV
 
       - name: Build Docker Image
         run: |
@@ -107,12 +107,12 @@ jobs:
       - name: Scan image
         uses: anchore/scan-action@v6
         with:
-          image: "ghcr.io/intrastellarltd/blog-project-springboot/blog:latest"
+          image: "ghcr.io/HassanMunir/blog-project-springboot/blog:latest"
           fail-build: false
   
       - uses: anchore/sbom-action@v0
         with:
-          image: "ghcr.io/intrastellarltd/blog-project-springboot/blog:latest"
+          image: "ghcr.io/HassanMunir/blog-project-springboot/blog:latest"
 
       - name: Push Docker Image to GHCR
         run: |
